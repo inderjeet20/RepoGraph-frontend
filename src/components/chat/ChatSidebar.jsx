@@ -88,19 +88,25 @@ export default function ChatSidebar() {
     }
   };
 
+  // Strictly filter tabs to current repo nodes only
+  const validNodeLabels = new Set(graphData.nodes?.map((n) => n.label) || []);
+  const visibleTabs = chatTabs.filter(
+    (tab) => tab === 'General' || validNodeLabels.has(tab)
+  );
+
   return (
     <div className="w-full h-full flex flex-col bg-white dark:bg-neutral-900 border-l border-neutral-200 dark:border-neutral-800 transition-colors">
-      {/* 1. Top Tabs Bar (Persistent across reloads via localStorage) */}
+      {/* 1. Top Tabs Bar (Filtered strictly to current repo's nodes) */}
       <div className="flex items-center gap-1 px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 overflow-x-auto bg-neutral-50 dark:bg-neutral-950/60 no-scrollbar">
-        {chatTabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab;
           return (
             <div
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all whitespace-nowrap ${
                 isActive
-                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm border border-neutral-200 dark:border-neutral-800'
+                  ? 'bg-airforce-500 text-white shadow-sm font-semibold'
                   : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50'
               }`}
             >
@@ -108,7 +114,11 @@ export default function ChatSidebar() {
               {tab !== 'General' && (
                 <button
                   onClick={(e) => closeTab(tab, e)}
-                  className="p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors ml-0.5"
+                  className={`p-0.5 rounded transition-colors ml-0.5 ${
+                    isActive
+                      ? 'text-white/80 hover:text-white hover:bg-airforce-600'
+                      : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                  }`}
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -118,17 +128,28 @@ export default function ChatSidebar() {
         })}
       </div>
 
-      {/* 2. Scoped Header */}
-      <div className="px-4 py-2.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-airforce-500" />
-          <span className="font-medium text-neutral-900 dark:text-white">
-            {activeTab === 'General' ? 'Ask anything about repository' : `Ask about ${activeTab}`}
-          </span>
+      {/* 2. Scoped Header & Context Indicator */}
+      <div className="px-3.5 py-2.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs bg-neutral-50/70 dark:bg-neutral-950/40">
+        <div className="flex items-center gap-2 truncate">
+          <MessageSquare className="w-4 h-4 text-airforce-500 shrink-0" />
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="font-semibold text-neutral-900 dark:text-white truncate">
+              {activeTab === 'General' ? 'Repository Assistant' : activeTab}
+            </span>
+            {activeNodeContext?.files?.[0] && (
+              <span className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 truncate max-w-[130px]" title={activeNodeContext.files.join(', ')}>
+                ({activeNodeContext.files[0]})
+              </span>
+            )}
+          </div>
         </div>
-        {activeNodeContext && (
-          <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-airforce-500/10 text-airforce-600 dark:text-airforce-400">
+        {activeNodeContext ? (
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-airforce-500/15 text-airforce-600 dark:text-airforce-400 font-semibold tracking-wide shrink-0">
             {activeNodeContext.type}
+          </span>
+        ) : (
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-neutral-200/60 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 font-medium shrink-0">
+            General
           </span>
         )}
       </div>

@@ -196,7 +196,7 @@ export default function NodePanel() {
       <div className="mt-5 pt-3 border-t border-neutral-200 dark:border-neutral-800 grid grid-cols-3 gap-1.5">
         <button
           onClick={handleExplain}
-          className="px-2.5 py-2 rounded-lg text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+          className="px-2.5 py-2 rounded-lg text-xs font-medium bg-neutral-100 dark:bg-neutral-800/80 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
         >
           <Sparkles className="w-3.5 h-3.5 text-airforce-500" />
           <span>Explain</span>
@@ -204,7 +204,7 @@ export default function NodePanel() {
 
         <button
           onClick={handleTraceFlow}
-          className="px-2.5 py-2 rounded-lg text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+          className="px-2.5 py-2 rounded-lg text-xs font-medium bg-neutral-100 dark:bg-neutral-800/80 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
         >
           <CornerDownRight className="w-3.5 h-3.5 text-airforce-500" />
           <span>Trace Flow</span>
@@ -212,7 +212,7 @@ export default function NodePanel() {
 
         <button
           onClick={handleAsk}
-          className="px-2.5 py-2 rounded-lg text-xs font-medium bg-airforce-500 text-white hover:bg-airforce-600 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+          className="px-2.5 py-2 rounded-lg text-xs font-medium bg-airforce-500 text-white hover:bg-airforce-600 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-sm"
         >
           <MessageSquare className="w-3.5 h-3.5" />
           <span>Ask</span>

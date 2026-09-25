@@ -24,37 +24,71 @@ export default function GraphCanvas() {
     clearFocus,
   } = useStore();
 
-  // Compute hierarchical positions if not already fixed
+  // Compute DAG hierarchical positions: layout nodes in true sequential execution flow
   const flowNodes = useMemo(() => {
     if (!graphData.nodes || graphData.nodes.length === 0) return [];
 
-    // Group nodes by layer/type
-    const typeOrder = ['frontend', 'backend', 'service', 'database', 'external'];
-    const groups = {};
-    typeOrder.forEach((t) => (groups[t] = []));
+    const nodes = graphData.nodes;
+    const edges = graphData.edges || [];
 
-    graphData.nodes.forEach((n) => {
-      const t = n.type || 'service';
-      if (!groups[t]) groups[t] = [];
-      groups[t].push(n);
+    // 1. Initial base layer assignment (from AI synthesis or architectural type)
+    const layerMap = {};
+    const typeFallback = { frontend: 0, backend: 1, service: 2, database: 3, external: 3 };
+
+    nodes.forEach((n) => {
+      if (typeof n.layer === 'number') {
+        layerMap[n.id] = n.layer;
+      } else {
+        layerMap[n.id] = typeFallback[n.type] ?? 1;
+      }
     });
 
+    // 2. DAG Layer Relaxation:
+    // Guarantee that every target is placed strictly below its source in the flow (targetLayer > sourceLayer)
+    const maxPasses = Math.min(nodes.length, 8);
+    for (let pass = 0; pass < maxPasses; pass++) {
+      let changed = false;
+      edges.forEach((edge) => {
+        const sLayer = layerMap[edge.source];
+        const tLayer = layerMap[edge.target];
+        if (sLayer !== undefined && tLayer !== undefined) {
+          if (tLayer <= sLayer) {
+            layerMap[edge.target] = sLayer + 1;
+            changed = true;
+          }
+        }
+      });
+      if (!changed) break;
+    }
+
+    // 3. Group nodes into sequential horizontal tiers
+    const layerGroups = {};
+    nodes.forEach((node) => {
+      const l = layerMap[node.id] || 0;
+      if (!layerGroups[l]) layerGroups[l] = [];
+      layerGroups[l].push(node);
+    });
+
+    const sortedLayers = Object.keys(layerGroups).map(Number).sort((a, b) => a - b);
+
+    // 4. Calculate symmetrical positions with generous spacing
     const calculated = [];
-    let currentY = 50;
+    const CENTER_X = 650;
+    const HORIZONTAL_SPACING = 290;
+    const VERTICAL_SPACING = 230;
+    let currentY = 70;
 
-    typeOrder.forEach((t) => {
-      const groupNodes = groups[t] || [];
-      if (groupNodes.length === 0) return;
-
-      const totalWidth = groupNodes.length * 260;
-      const startX = Math.max(80, 500 - totalWidth / 2);
+    sortedLayers.forEach((l) => {
+      const groupNodes = layerGroups[l];
+      const layerWidth = (groupNodes.length - 1) * HORIZONTAL_SPACING;
+      const startX = CENTER_X - layerWidth / 2;
 
       groupNodes.forEach((node, idx) => {
         calculated.push({
           id: node.id,
           type: 'custom',
           position: {
-            x: startX + idx * 260,
+            x: startX + idx * HORIZONTAL_SPACING,
             y: currentY,
           },
           data: node,
@@ -62,13 +96,13 @@ export default function GraphCanvas() {
         });
       });
 
-      currentY += 150;
+      currentY += VERTICAL_SPACING;
     });
 
     return calculated;
-  }, [graphData.nodes, selectedNode]);
+  }, [graphData.nodes, graphData.edges, selectedNode]);
 
-  // Edges with animated Air Force Blue styling when highlighted in trace flow
+  // Edges with smooth bezier curves, flow labels, and elegant coloring
   const flowEdges = useMemo(() => {
     if (!graphData.edges) return [];
 
@@ -86,15 +120,29 @@ export default function GraphCanvas() {
         id: edge.id || `e_${edge.source}_${edge.target}`,
         source: edge.source,
         target: edge.target,
+        type: 'bezier',
         animated: isPathEdge,
+        label: edge.label || '',
+        labelStyle: {
+          fontSize: 10,
+          fontFamily: 'monospace',
+          fill: isPathEdge ? '#4789b8' : '#71717a',
+          fontWeight: isPathEdge ? 600 : 500,
+        },
+        labelBgStyle: {
+          fill: '#ffffff',
+          fillOpacity: 0.9,
+        },
+        labelBgPadding: [6, 2],
+        labelBgBorderRadius: 4,
         style: {
-          stroke: isPathEdge ? '#4789b8' : focusMode ? '#737373' : '#a3a3a3',
-          strokeWidth: isPathEdge ? 2.5 : 1.5,
-          opacity: focusMode && !isPathEdge ? 0.25 : 0.8,
+          stroke: isPathEdge ? '#4789b8' : focusMode ? '#52525b' : '#94a3b8',
+          strokeWidth: isPathEdge ? 2.5 : 1.75,
+          opacity: focusMode && !isPathEdge ? 0.2 : 0.85,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: isPathEdge ? '#4789b8' : '#a3a3a3',
+          color: isPathEdge ? '#4789b8' : '#94a3b8',
           width: 14,
           height: 14,
         },
@@ -110,7 +158,7 @@ export default function GraphCanvas() {
   );
 
   const onPaneClick = useCallback(() => {
-    // Tapping canvas background closes inspector
+    // Tapping canvas background deselects inspector
     setSelectedNode(null);
   }, [setSelectedNode]);
 
@@ -120,8 +168,8 @@ export default function GraphCanvas() {
       <div className="absolute top-4 left-4 z-10 flex flex-wrap items-center gap-2 pointer-events-auto">
         {focusMode && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-mono shadow-md animate-fadeIn">
-            <Sparkles className="w-3.5 h-3.5 text-airforce-400" />
-            <span>Trace Flow Active ({highlightedPath.length} steps)</span>
+            <Sparkles className="w-3.5 h-3.5 text-airforce-400 dark:text-airforce-600" />
+            <span>Trace Active ({highlightedPath.length} steps)</span>
             <button
               onClick={clearFocus}
               className="ml-1 p-0.5 rounded hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
@@ -133,7 +181,7 @@ export default function GraphCanvas() {
         )}
 
         {/* Legend */}
-        <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 text-[11px] font-mono text-neutral-600 dark:text-neutral-400 shadow-sm backdrop-blur-sm">
+        <div className="hidden sm:flex items-center gap-3.5 px-3 py-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 text-[11px] font-mono text-neutral-600 dark:text-neutral-400 shadow-sm backdrop-blur-sm">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500" /> Frontend
           </span>
@@ -146,6 +194,9 @@ export default function GraphCanvas() {
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-500" /> Database
           </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-sky-500" /> External
+          </span>
         </div>
       </div>
 
@@ -156,12 +207,12 @@ export default function GraphCanvas() {
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         fitView
-        fitViewOptions={{ padding: 0.25 }}
-        minZoom={0.3}
+        fitViewOptions={{ padding: 0.3 }}
+        minZoom={0.25}
         maxZoom={1.5}
         className="transition-colors"
       >
-        <Background color="#a3a3a3" gap={20} size={1} className="opacity-30" />
+        <Background color="#94a3b8" gap={24} size={1} className="opacity-25" />
         <Controls className="!bg-white dark:!bg-neutral-900 !border-neutral-200 dark:!border-neutral-800 !shadow-sm !rounded-lg" />
       </ReactFlow>
     </div>

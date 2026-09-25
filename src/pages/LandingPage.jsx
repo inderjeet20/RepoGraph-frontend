@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
 import Navbar from '../components/Navbar';
+import HistoryDrawer from '../components/history/HistoryDrawer';
 import { useStore } from '../store/useStore';
-import { ArrowRight, Sparkles, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle } from 'lucide-react';
 
 export default function LandingPage() {
-  const { repoUrl, setRepoUrl, setStatus, setGraphData, setError, error } = useStore();
+  const {
+    repoUrl,
+    setRepoUrl,
+    setStatus,
+    setGraphData,
+    setError,
+    error,
+  } = useStore();
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
 
@@ -34,7 +42,7 @@ export default function LandingPage() {
       }
 
       const data = await res.json();
-      setGraphData(data, data.repo_name);
+      setGraphData(data, data.repo_name, cleanUrl);
     } catch (e) {
       setError(e.message);
       setStatus('idle');
@@ -44,18 +52,13 @@ export default function LandingPage() {
     }
   };
 
-  const handleQuickSample = (sampleUrl) => {
-    setRepoUrl(sampleUrl);
-    handleAnalyze(sampleUrl);
-  };
-
   return (
     <div className="min-h-screen flex flex-col font-sans bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-200">
       <Navbar />
 
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-16 sm:py-24">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 py-16 sm:py-20">
         <div className="w-full max-w-2xl text-center">
-          {/* User's exact prompt text */}
+          {/* Headline */}
           <p className="text-lg sm:text-xl font-normal text-neutral-700 dark:text-neutral-300 mb-8 leading-relaxed max-w-xl mx-auto">
             We are going to show you full flow of your repository like git in a beautiful manner, it's{' '}
             <span className="font-semibold text-neutral-900 dark:text-white">RepoGraph</span>
@@ -82,7 +85,7 @@ export default function LandingPage() {
               <button
                 type="submit"
                 disabled={loading || !repoUrl.trim()}
-                className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-airforce-500 hover:bg-airforce-600 active:bg-airforce-700 disabled:opacity-50 transition-colors cursor-pointer"
+                className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-airforce-500 hover:bg-airforce-600 active:bg-airforce-700 disabled:opacity-50 transition-colors cursor-pointer shadow-sm"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
@@ -111,34 +114,11 @@ export default function LandingPage() {
               </div>
             )}
           </form>
-
-          {/* Quick samples for 1-click testing */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-xs font-mono text-neutral-500">
-            <span>Try sample:</span>
-            <button
-              onClick={() => handleQuickSample('https://github.com/tiangolo/fastapi')}
-              disabled={loading}
-              className="px-2.5 py-1 rounded-md bg-neutral-200/60 dark:bg-neutral-800/60 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-colors"
-            >
-              fastapi/fastapi
-            </button>
-            <button
-              onClick={() => handleQuickSample('https://github.com/facebook/react')}
-              disabled={loading}
-              className="px-2.5 py-1 rounded-md bg-neutral-200/60 dark:bg-neutral-800/60 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-colors"
-            >
-              facebook/react
-            </button>
-            <button
-              onClick={() => handleQuickSample('https://github.com/astral-sh/uv')}
-              disabled={loading}
-              className="px-2.5 py-1 rounded-md bg-neutral-200/60 dark:bg-neutral-800/60 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-colors"
-            >
-              astral-sh/uv
-            </button>
-          </div>
         </div>
       </main>
+
+      {/* Slide-Over History Sidebar */}
+      <HistoryDrawer />
     </div>
   );
 }
