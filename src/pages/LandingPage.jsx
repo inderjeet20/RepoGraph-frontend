@@ -61,7 +61,7 @@ export default function LandingPage() {
           {/* Headline */}
           <p className="text-lg sm:text-xl font-normal text-neutral-700 dark:text-neutral-300 mb-8 leading-relaxed max-w-xl mx-auto">
             We are going to show you full flow of your repository like git in a beautiful manner, it's{' '}
-            <span className="font-semibold text-neutral-900 dark:text-white">RepoGraph</span>
+            <span className="font-semibold text-neutral-900 dark:text-white">RepoGraph AI</span>
           </p>
 
           {/* Central repository input box */}

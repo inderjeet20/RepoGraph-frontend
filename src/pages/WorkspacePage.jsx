@@ -30,8 +30,9 @@ export default function WorkspacePage() {
 
           {/* Brand Logo */}
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-base tracking-tight text-neutral-900 dark:text-white">
-              Repo<span className="text-airforce-500">Graph</span>
+            <span className="font-semibold text-base tracking-tight text-neutral-900 dark:text-white flex items-center gap-1.5">
+              <span>Repo<span className="text-airforce-500">Graph</span></span>
+              <span className="text-[11px] px-1.5 py-0.5 rounded font-mono font-bold bg-airforce-500/15 text-airforce-600 dark:text-airforce-400">AI</span>
             </span>
           </div>
 
