@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useTheme } from '../context/ThemeContext';
 import GraphCanvas from '../components/graph/GraphCanvas';
@@ -10,6 +10,52 @@ import { Sun, Moon, ArrowLeft, GitBranch, History } from 'lucide-react';
 export default function WorkspacePage() {
   const { repoName, resetToLanding, history, setHistoryOpen } = useStore();
   const { toggleTheme, isDark } = useTheme();
+
+  // Resizable Chatbox & Graph state
+  const [chatWidth, setChatWidth] = useState(380);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+      // Chat is on the right side
+      const newWidth = window.innerWidth - e.clientX;
+      // Clamped between 280px and 60% of screen width (max 850px)
+      const minWidth = 280;
+      const maxWidth = Math.min(window.innerWidth * 0.6, 850);
+      const clamped = Math.max(minWidth, Math.min(maxWidth, newWidth));
+      setChatWidth(clamped);
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    if (isDragging) {
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
 
   return (
     <div className="w-screen h-screen flex flex-col font-sans bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 overflow-hidden transition-colors">
@@ -79,16 +125,37 @@ export default function WorkspacePage() {
         </div>
       </header>
 
-      {/* Main Workspace Body: 70–75% Graph, 25–30% Chat */}
+      {/* Main Workspace Body with Resizable Splitter */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-        {/* Graph Area (~70% width) */}
-        <div className="flex-1 md:w-[70%] lg:w-[73%] h-full relative overflow-hidden">
+        {/* Graph Area (expands to fill remaining width) */}
+        <div className="flex-1 h-full relative overflow-hidden">
           <GraphCanvas />
           <NodePanel />
         </div>
 
-        {/* Chat Sidebar (~30% width) */}
-        <div className="w-full md:w-[30%] lg:w-[27%] h-[45vh] md:h-full shrink-0">
+        {/* Resizable Divider Slider (Desktop only) */}
+        <div
+          onMouseDown={() => setIsDragging(true)}
+          className={`hidden md:flex items-center justify-center w-2 hover:w-2.5 transition-all duration-150 cursor-col-resize select-none shrink-0 z-20 group ${
+            isDragging ? 'bg-airforce-500' : 'bg-neutral-200 dark:bg-neutral-800 hover:bg-airforce-500/60'
+          }`}
+          title="Drag to resize chatbox and graph"
+        >
+          {/* Subtle grab dots handle */}
+          <div className="flex flex-col gap-1 items-center opacity-40 group-hover:opacity-100 transition-opacity">
+            <span className="w-1 h-1 rounded-full bg-neutral-600 dark:bg-neutral-400 group-hover:bg-white" />
+            <span className="w-1 h-1 rounded-full bg-neutral-600 dark:bg-neutral-400 group-hover:bg-white" />
+            <span className="w-1 h-1 rounded-full bg-neutral-600 dark:bg-neutral-400 group-hover:bg-white" />
+          </div>
+        </div>
+
+        {/* Chatbox Sidebar with Dynamic Width */}
+        <div
+          className="w-full h-[45vh] md:h-full shrink-0 flex flex-col border-t md:border-t-0 md:border-l border-neutral-200 dark:border-neutral-800"
+          style={{
+            width: isDesktop ? `${chatWidth}px` : '100%'
+          }}
+        >
           <ChatSidebar />
         </div>
       </div>

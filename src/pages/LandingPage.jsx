@@ -23,13 +23,17 @@ export default function LandingPage() {
     setLoading(true);
     setStatus('analyzing');
     setError('');
-    setLoadingStep('Fetching repository tree & architecture manifests...');
+    setLoadingStep('Fetching repository tree & architectural files...');
+
+    const t1 = setTimeout(() => {
+      setLoadingStep('Chunking code & indexing vectors into Qdrant Cloud...');
+    }, 900);
+
+    const t2 = setTimeout(() => {
+      setLoadingStep('Synthesizing architectural flow & validating nodes...');
+    }, 2800);
 
     try {
-      setTimeout(() => {
-        setLoadingStep('Synthesizing architecture nodes & dependency edges...');
-      }, 700);
-
       const res = await fetch('http://localhost:8000/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -47,6 +51,8 @@ export default function LandingPage() {
       setError(e.message);
       setStatus('idle');
     } finally {
+      clearTimeout(t1);
+      clearTimeout(t2);
       setLoading(false);
       setLoadingStep('');
     }
