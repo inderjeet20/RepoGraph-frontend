@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar';
 import HistoryDrawer from '../components/history/HistoryDrawer';
 import { useStore } from '../store/useStore';
 import { ArrowRight, AlertCircle } from 'lucide-react';
+import { API_BASE_URL } from '../config/api';
 
 export default function LandingPage() {
   const {
@@ -34,7 +35,7 @@ export default function LandingPage() {
     }, 2800);
 
     try {
-      const res = await fetch('http://localhost:8000/api/analyze', {
+      const res = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repo_url: cleanUrl }),

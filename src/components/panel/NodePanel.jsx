@@ -1,6 +1,7 @@
 import React from 'react';
 import { useStore } from '../../store/useStore';
 import { X, Sparkles, GitCommit, MessageSquare, ArrowRight, CornerDownRight } from 'lucide-react';
+import { API_BASE_URL } from '../../config/api';
 
 export default function NodePanel() {
   const {
@@ -25,7 +26,7 @@ export default function NodePanel() {
 
     setChatLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/chat', {
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -64,7 +65,7 @@ export default function NodePanel() {
 
     setChatLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/chat', {
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

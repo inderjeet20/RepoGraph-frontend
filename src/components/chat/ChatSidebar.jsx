@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import ChatMessage from './ChatMessage';
 import { Send, X, Bot, Sparkles, MessageSquare } from 'lucide-react';
+import { API_BASE_URL } from '../../config/api';
 
 export default function ChatSidebar() {
   const {
@@ -45,7 +46,7 @@ export default function ChatSidebar() {
 
     setChatLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/chat', {
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
