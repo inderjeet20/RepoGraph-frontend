@@ -14,23 +14,66 @@
   }
 }
 
-/* ReactFlow Controls & Dark Mode Compatibility */
+/* ─── Utility ──────────────────────────────────────────────── */
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.25s ease forwards;
+  }
+
+  .animate-slideUp {
+    animation: slideUp 0.25s ease forwards;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── CustomNode dark-mode overrides ───────────────────────── */
+.dark .dark-node {
+  background: rgba(23, 23, 23, 0.97) !important;
+  border-color: rgba(255,255,255,0.1) !important;
+}
+
+.dark .node-label {
+  color: #f3f4f6 !important;
+}
+
+.dark .node-desc {
+  color: #9ca3af !important;
+}
+
+/* ─── ReactFlow Controls ────────────────────────────────────── */
 .react-flow__controls {
-  border-radius: 8px !important;
+  border-radius: 10px !important;
   overflow: hidden !important;
-  border: 1px solid #e5e5e5 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06) !important;
   background-color: #ffffff !important;
 }
 
 .react-flow__controls-button {
   background-color: #ffffff !important;
   border: none !important;
-  border-bottom: 1px solid #f0f0f0 !important;
-  color: #525252 !important;
-  fill: #525252 !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  color: #6b7280 !important;
+  fill: #6b7280 !important;
   transition: all 0.15s ease !important;
-  padding: 6px !important;
+  padding: 7px !important;
 }
 
 .react-flow__controls-button:last-child {
@@ -38,50 +81,65 @@
 }
 
 .react-flow__controls-button:hover {
-  background-color: #f5f5f5 !important;
-  color: #171717 !important;
-  fill: #171717 !important;
+  background-color: #f9fafb !important;
+  color: #111827 !important;
+  fill: #111827 !important;
 }
 
 .react-flow__controls-button svg {
   fill: currentColor !important;
 }
 
-/* Dark mode overrides for ReactFlow Controls */
+/* Dark mode ReactFlow Controls */
 .dark .react-flow__controls {
   background-color: #171717 !important;
   border: 1px solid #262626 !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
 }
 
 .dark .react-flow__controls-button {
   background-color: #171717 !important;
   border-bottom: 1px solid #262626 !important;
-  color: #a3a3a3 !important;
-  fill: #a3a3a3 !important;
+  color: #9ca3af !important;
+  fill: #9ca3af !important;
 }
 
 .dark .react-flow__controls-button:hover {
   background-color: #262626 !important;
-  color: #f5f5f5 !important;
-  fill: #f5f5f5 !important;
+  color: #f3f4f6 !important;
+  fill: #f3f4f6 !important;
 }
 
 .dark .react-flow__controls-button svg {
   fill: currentColor !important;
 }
 
-/* ReactFlow Edge Labels */
+/* ─── ReactFlow MiniMap dark mode ──────────────────────────── */
+.dark .react-flow__minimap {
+  background-color: #171717 !important;
+  border: 1px solid #262626 !important;
+}
+
+.dark .react-flow__minimap-mask {
+  fill: rgba(255,255,255,0.04) !important;
+}
+
+/* ─── ReactFlow Edge Labels ─────────────────────────────────── */
 .react-flow__edge-text {
   font-family: 'JetBrains Mono', monospace !important;
-  font-size: 10px !important;
+  font-size: 9.5px !important;
 }
 
 .dark .react-flow__edge-text {
-  fill: #94a3b8 !important;
+  fill: #9ca3af !important;
 }
 
 .dark .react-flow__edge-textbg {
   fill: #171717 !important;
-  fill-opacity: 0.92 !important;
+  fill-opacity: 0.95 !important;
+}
+
+/* ─── ReactFlow background ──────────────────────────────────── */
+.dark .react-flow__background {
+  --xy-background-pattern-dots-color-default: #374151 !important;
 }

@@ -1,131 +1,253 @@
 import React, { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { useStore } from '../../store/useStore';
-import { Layout, Server, Cpu, Database, ExternalLink } from 'lucide-react';
+import { Layout, Server, Cpu, Database, ExternalLink, FileCode } from 'lucide-react';
+
+// ─── Type configurations ───────────────────────────────────────────────────
 
 const TYPE_CONFIG = {
   frontend: {
-    icon: Layout,
-    iconColor: 'text-emerald-500 dark:text-emerald-400',
-    ringDefault: 'bg-emerald-500/10 border-2 border-emerald-500/40 hover:border-emerald-500 shadow-emerald-500/5',
-    ringSelected: 'bg-emerald-500/20 border-2 border-emerald-500 ring-4 ring-emerald-500/25',
-    typeText: 'text-emerald-600 dark:text-emerald-400',
+    Icon: Layout,
+    accent: '#10b981',       // emerald-500
+    bg: 'rgba(16,185,129,0.08)',
+    border: 'rgba(16,185,129,0.35)',
+    borderSelected: '#10b981',
+    ring: 'rgba(16,185,129,0.2)',
+    badge: { bg: 'rgba(16,185,129,0.12)', text: '#059669' },
     label: 'Frontend',
   },
   backend: {
-    icon: Server,
-    iconColor: 'text-airforce-500 dark:text-airforce-400',
-    ringDefault: 'bg-airforce-500/10 border-2 border-airforce-500/35 hover:border-airforce-500 shadow-airforce-500/5',
-    ringSelected: 'bg-airforce-500/20 border-2 border-airforce-500 ring-4 ring-airforce-500/25',
-    typeText: 'text-airforce-600 dark:text-airforce-400',
+    Icon: Server,
+    accent: '#4789b8',
+    bg: 'rgba(71,137,184,0.08)',
+    border: 'rgba(71,137,184,0.35)',
+    borderSelected: '#4789b8',
+    ring: 'rgba(71,137,184,0.2)',
+    badge: { bg: 'rgba(71,137,184,0.12)', text: '#356e9c' },
     label: 'Backend',
   },
   service: {
-    icon: Cpu,
-    iconColor: 'text-purple-500 dark:text-purple-400',
-    ringDefault: 'bg-purple-500/10 border-2 border-purple-500/40 hover:border-purple-500 shadow-purple-500/5',
-    ringSelected: 'bg-purple-500/20 border-2 border-purple-500 ring-4 ring-purple-500/25',
-    typeText: 'text-purple-600 dark:text-purple-400',
+    Icon: Cpu,
+    accent: '#a855f7',
+    bg: 'rgba(168,85,247,0.08)',
+    border: 'rgba(168,85,247,0.35)',
+    borderSelected: '#a855f7',
+    ring: 'rgba(168,85,247,0.2)',
+    badge: { bg: 'rgba(168,85,247,0.12)', text: '#9333ea' },
     label: 'Service',
   },
   database: {
-    icon: Database,
-    iconColor: 'text-amber-500 dark:text-amber-400',
-    ringDefault: 'bg-amber-500/10 border-2 border-amber-500/40 hover:border-amber-500 shadow-amber-500/5',
-    ringSelected: 'bg-amber-500/20 border-2 border-amber-500 ring-4 ring-amber-500/25',
-    typeText: 'text-amber-600 dark:text-amber-400',
+    Icon: Database,
+    accent: '#f59e0b',
+    bg: 'rgba(245,158,11,0.08)',
+    border: 'rgba(245,158,11,0.35)',
+    borderSelected: '#f59e0b',
+    ring: 'rgba(245,158,11,0.2)',
+    badge: { bg: 'rgba(245,158,11,0.12)', text: '#d97706' },
     label: 'Database',
   },
   external: {
-    icon: ExternalLink,
-    iconColor: 'text-sky-500 dark:text-sky-400',
-    ringDefault: 'bg-sky-500/10 border-2 border-sky-500/40 hover:border-sky-500 shadow-sky-500/5',
-    ringSelected: 'bg-sky-500/20 border-2 border-sky-500 ring-4 ring-sky-500/25',
-    typeText: 'text-sky-600 dark:text-sky-400',
+    Icon: ExternalLink,
+    accent: '#0ea5e9',
+    bg: 'rgba(14,165,233,0.08)',
+    border: 'rgba(14,165,233,0.35)',
+    borderSelected: '#0ea5e9',
+    ring: 'rgba(14,165,233,0.2)',
+    badge: { bg: 'rgba(14,165,233,0.12)', text: '#0284c7' },
     label: 'External',
   },
 };
 
+// ─── CustomNode component ─────────────────────────────────────────────────
+
 function CustomNode({ id, data, selected }) {
   const { highlightedPath, focusMode } = useStore();
 
-  const nodeType = data.type || 'service';
-  const config = TYPE_CONFIG[nodeType] || TYPE_CONFIG.service;
-  const Icon = config.icon;
+  const nodeType = (data.type || 'service').toLowerCase();
+  const cfg = TYPE_CONFIG[nodeType] || TYPE_CONFIG.service;
+  const { Icon } = cfg;
 
-  // Focus mode calculation: dim everything except highlighted path
   const isHighlighted = highlightedPath.includes(id);
   const pathIndex = isHighlighted ? highlightedPath.indexOf(id) + 1 : null;
   const isDimmed = focusMode && !isHighlighted;
 
+  const fileCount = data.files?.length ?? 0;
+  const displayFiles = data.files?.slice(0, 2) ?? [];
+
   return (
     <div
-      className={`group relative flex flex-col items-center select-none cursor-pointer transition-all duration-300 ${
-        isDimmed ? 'opacity-20 scale-90 blur-[0.5px]' : 'opacity-100'
-      }`}
+      style={{
+        opacity: isDimmed ? 0.15 : 1,
+        transform: isDimmed ? 'scale(0.93)' : 'scale(1)',
+        filter: isDimmed ? 'blur(0.5px)' : 'none',
+        transition: 'opacity 0.3s ease, transform 0.3s ease, filter 0.3s ease',
+        width: 200,
+        position: 'relative',
+      }}
     >
-      {/* Circular Node Orb Container */}
-      <div className="relative w-16 h-16 flex items-center justify-center">
-        {/* Top Handle - target */}
-        <Handle
-          type="target"
-          position={Position.Top}
-          className="!w-2.5 !h-2.5 !bg-neutral-400 dark:!bg-neutral-500 !border-2 !border-white dark:!border-neutral-900 !rounded-full transition-transform group-hover:scale-125 !top-0"
-        />
+      {/* Target handle */}
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{
+          width: 10, height: 10,
+          background: cfg.accent,
+          border: '2px solid white',
+          borderRadius: '50%',
+          top: -5,
+          opacity: 0.9,
+        }}
+      />
 
-        {/* Circular Hub */}
-        <div
-          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-md ${
-            selected
-              ? `${config.ringSelected} shadow-xl scale-110`
-              : isHighlighted
-              ? 'ring-4 ring-airforce-500/60 shadow-lg scale-110'
-              : `${config.ringDefault} shadow-md group-hover:scale-105 group-hover:shadow-lg`
-          }`}
-        >
-          <Icon className={`w-7 h-7 transition-colors ${config.iconColor}`} />
-        </div>
+      {/* Main card */}
+      <div
+        style={{
+          background: selected
+            ? cfg.bg
+            : isHighlighted
+            ? cfg.bg
+            : 'rgba(255,255,255,0.97)',
+          border: `1.5px solid ${selected ? cfg.borderSelected : isHighlighted ? cfg.accent : cfg.border}`,
+          borderRadius: 12,
+          boxShadow: selected
+            ? `0 0 0 3px ${cfg.ring}, 0 8px 24px rgba(0,0,0,0.12)`
+            : isHighlighted
+            ? `0 0 0 2px ${cfg.ring}, 0 4px 16px rgba(0,0,0,0.08)`
+            : '0 2px 8px rgba(0,0,0,0.06)',
+          overflow: 'hidden',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+        }}
+        className="group dark-node"
+      >
+        {/* Top accent bar */}
+        <div style={{
+          height: 3,
+          background: `linear-gradient(90deg, ${cfg.accent}, ${cfg.accent}80)`,
+          width: '100%',
+        }} />
 
-        {/* Step Badge if in trace flow */}
-        {pathIndex && (
-          <span className="absolute -top-1.5 -right-2 px-2 py-0.5 rounded-full bg-airforce-600 text-white font-mono text-[10px] font-bold shadow-md z-10 animate-bounce">
-            Step {pathIndex}
-          </span>
-        )}
+        {/* Card content */}
+        <div style={{ padding: '10px 12px 10px' }}>
+          {/* Header row: icon + type badge */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div style={{
+              width: 28, height: 28,
+              borderRadius: 7,
+              background: cfg.bg,
+              border: `1px solid ${cfg.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <Icon size={14} style={{ color: cfg.accent }} />
+            </div>
 
-        {/* Bottom Handle - source */}
-        <Handle
-          type="source"
-          position={Position.Bottom}
-          className="!w-2.5 !h-2.5 !bg-neutral-400 dark:!bg-neutral-500 !border-2 !border-white dark:!border-neutral-900 !rounded-full transition-transform group-hover:scale-125 !bottom-0"
-        />
-      </div>
+            <span style={{
+              fontSize: 9,
+              fontFamily: 'JetBrains Mono, monospace',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '2px 7px',
+              borderRadius: 20,
+              background: cfg.badge.bg,
+              color: cfg.badge.text,
+            }}>
+              {cfg.label}
+            </span>
+          </div>
 
-      {/* Label and Info Below the Circle */}
-      <div className="mt-2.5 flex flex-col items-center text-center max-w-[160px]">
-        <span
-          className={`text-xs font-semibold leading-tight transition-colors line-clamp-2 ${
-            selected
-              ? 'text-airforce-600 dark:text-airforce-400 font-bold'
-              : 'text-neutral-800 dark:text-neutral-100 group-hover:text-airforce-500'
-          }`}
-        >
-          {data.label}
-        </span>
+          {/* Node label */}
+          <div style={{
+            fontSize: 12.5,
+            fontWeight: 600,
+            color: '#111827',
+            lineHeight: 1.35,
+            marginBottom: 6,
+            wordBreak: 'break-word',
+          }}
+            className="node-label"
+          >
+            {data.label}
+          </div>
 
-        {/* Type & File Count Pill */}
-        <div className="mt-1 flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
-          <span className={`font-semibold ${config.typeText}`}>{config.label}</span>
-          {data.files && data.files.length > 0 && (
-            <>
-              <span>•</span>
-              <span>
-                {data.files.length} {data.files.length === 1 ? 'file' : 'files'}
+          {/* Description (truncated) */}
+          {data.description && (
+            <div style={{
+              fontSize: 10,
+              color: '#6b7280',
+              lineHeight: 1.4,
+              marginBottom: 6,
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+            }}
+              className="node-desc"
+            >
+              {data.description}
+            </div>
+          )}
+
+          {/* File count row */}
+          {fileCount > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              paddingTop: 6,
+              borderTop: '1px solid rgba(0,0,0,0.06)',
+            }}>
+              <FileCode size={9} style={{ color: '#9ca3af', flexShrink: 0 }} />
+              <span style={{
+                fontSize: 9.5,
+                fontFamily: 'JetBrains Mono, monospace',
+                color: '#9ca3af',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                flex: 1,
+              }}>
+                {displayFiles[0]?.split('/').pop() || ''}
+                {fileCount > 1 ? ` +${fileCount - 1} more` : ''}
               </span>
-            </>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Step badge for trace flow */}
+      {pathIndex && (
+        <div style={{
+          position: 'absolute',
+          top: -8,
+          right: -8,
+          background: cfg.accent,
+          color: 'white',
+          fontSize: 9,
+          fontFamily: 'JetBrains Mono, monospace',
+          fontWeight: 700,
+          padding: '2px 6px',
+          borderRadius: 20,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+          zIndex: 10,
+          whiteSpace: 'nowrap',
+        }}>
+          #{pathIndex}
+        </div>
+      )}
+
+      {/* Source handle */}
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{
+          width: 10, height: 10,
+          background: cfg.accent,
+          border: '2px solid white',
+          borderRadius: '50%',
+          bottom: -5,
+          opacity: 0.9,
+        }}
+      />
     </div>
   );
 }

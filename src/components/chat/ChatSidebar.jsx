@@ -1,8 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../../store/useStore';
 import ChatMessage from './ChatMessage';
-import { Send, X, Bot, Sparkles, MessageSquare } from 'lucide-react';
+import { Send, X, Bot, MessageSquare, Zap } from 'lucide-react';
 import { API_BASE_URL } from '../../config/api';
+
+// Suggested starter prompts shown when a chat is empty
+const SUGGESTED_PROMPTS_GENERAL = [
+  'How does this repo work overall?',
+  'What is the architecture flow?',
+  'What tech stack is used?',
+];
+const getSuggestedPrompts = (tabName) => [
+  `Explain the role of ${tabName}`,
+  `What files does ${tabName} use?`,
+  `Trace the execution flow for ${tabName}`,
+];
 
 export default function ChatSidebar() {
   const {
@@ -22,23 +34,29 @@ export default function ChatSidebar() {
 
   const [inputVal, setInputVal] = useState('');
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   const currentMessages = chatMessages[activeTab] || [];
+  const isEmpty = currentMessages.length === 0;
 
-  // Auto-scroll to bottom of messages
+  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentMessages, isChatLoading]);
 
-  // Find node object corresponding to activeTab if it's a node tab
+  // Resolve node context for the active tab
   const activeNodeContext =
     activeTab !== 'General'
       ? graphData.nodes?.find((n) => n.label === activeTab) || selectedNode
       : null;
 
-  const handleSend = async (e) => {
-    if (e) e.preventDefault();
-    const query = inputVal.trim();
+  // Filter tabs to only valid node labels + General
+  const validNodeLabels = new Set(graphData.nodes?.map((n) => n.label) || []);
+  const visibleTabs = chatTabs.filter((t) => t === 'General' || validNodeLabels.has(t));
+
+  // ─── Send handler ─────────────────────────────────────────
+  const handleSend = useCallback(async (promptOverride) => {
+    const query = (promptOverride || inputVal).trim();
     if (!query || isChatLoading) return;
 
     setInputVal('');
@@ -59,8 +77,7 @@ export default function ChatSidebar() {
       });
       const data = await res.json();
 
-      // If backend returned a highlighted path (e.g. for trace/how does X work)
-      if (data.highlighted_path && data.highlighted_path.length > 0) {
+      if (data.highlighted_path?.length > 0) {
         setHighlightedPath(data.highlighted_path);
       }
 
@@ -73,14 +90,14 @@ export default function ChatSidebar() {
     } catch (err) {
       appendChatMessage(activeTab, {
         role: 'assistant',
-        content: `Error: Unable to connect to backend service. (${err.message})`,
+        content: `⚠️ Connection error: ${err.message}`,
         sources: [],
         source_type: 'repo',
       });
     } finally {
       setChatLoading(false);
     }
-  };
+  }, [inputVal, isChatLoading, activeTab, activeNodeContext, repoName, graphData]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -89,121 +106,169 @@ export default function ChatSidebar() {
     }
   };
 
-  // Strictly filter tabs to current repo nodes only
-  const validNodeLabels = new Set(graphData.nodes?.map((n) => n.label) || []);
-  const visibleTabs = chatTabs.filter(
-    (tab) => tab === 'General' || validNodeLabels.has(tab)
-  );
+  const suggestedPrompts =
+    activeTab === 'General' ? SUGGESTED_PROMPTS_GENERAL : getSuggestedPrompts(activeTab);
 
   return (
-    <div className="w-full h-full flex flex-col bg-white dark:bg-neutral-900 border-l border-neutral-200 dark:border-neutral-800 transition-colors">
-      {/* 1. Top Tabs Bar (Filtered strictly to current repo's nodes) */}
-      <div className="flex items-center gap-1 px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 overflow-x-auto bg-neutral-50 dark:bg-neutral-950/60 no-scrollbar">
+    <div className="w-full h-full flex flex-col bg-white dark:bg-neutral-900 transition-colors">
+
+      {/* ── Tab bar ─────────────────────────────────────── */}
+      <div className="flex items-center gap-1 px-3 py-2 border-b border-neutral-100 dark:border-neutral-800
+        bg-neutral-50/80 dark:bg-neutral-950/60 overflow-x-auto shrink-0 no-scrollbar">
         {visibleTabs.map((tab) => {
           const isActive = activeTab === tab;
           return (
-            <div
+            <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium
+                cursor-pointer transition-all whitespace-nowrap shrink-0 ${
                 isActive
-                  ? 'bg-airforce-500 text-white shadow-sm font-semibold'
-                  : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50'
+                  ? 'bg-airforce-500 text-white shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60'
               }`}
             >
-              <span>{tab}</span>
+              {tab}
               {tab !== 'General' && (
-                <button
-                  onClick={(e) => closeTab(tab, e)}
-                  className={`p-0.5 rounded transition-colors ml-0.5 ${
+                <span
+                  onClick={(e) => { e.stopPropagation(); closeTab(tab, e); }}
+                  className={`p-0.5 rounded transition-colors ${
                     isActive
-                      ? 'text-white/80 hover:text-white hover:bg-airforce-600'
-                      : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                      ? 'text-white/70 hover:text-white hover:bg-airforce-600'
+                      : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                   }`}
                 >
-                  <X className="w-3 h-3" />
-                </button>
+                  <X className="w-2.5 h-2.5" />
+                </span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
 
-      {/* 2. Scoped Header & Context Indicator */}
-      <div className="px-3.5 py-2.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs bg-neutral-50/70 dark:bg-neutral-950/40">
-        <div className="flex items-center gap-2 truncate">
-          <MessageSquare className="w-4 h-4 text-airforce-500 shrink-0" />
-          <div className="flex items-center gap-1.5 truncate">
-            <span className="font-semibold text-neutral-900 dark:text-white truncate">
-              {activeTab === 'General' ? 'Repository Assistant' : activeTab}
+      {/* ── Context header ──────────────────────────────── */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 dark:border-neutral-800
+        text-[11px] bg-neutral-50/40 dark:bg-neutral-950/30 shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <MessageSquare className="w-3.5 h-3.5 text-airforce-500 shrink-0" />
+          <span className="font-semibold text-neutral-800 dark:text-neutral-200 truncate">
+            {activeTab === 'General' ? 'Repository Chat' : activeTab}
+          </span>
+          {activeNodeContext?.files?.[0] && (
+            <span
+              className="text-[9.5px] font-mono text-neutral-400 dark:text-neutral-500 truncate max-w-[100px]"
+              title={activeNodeContext.files.join(', ')}
+            >
+              · {activeNodeContext.files[0].split('/').pop()}
             </span>
-            {activeNodeContext?.files?.[0] && (
-              <span className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500 truncate max-w-[130px]" title={activeNodeContext.files.join(', ')}>
-                ({activeNodeContext.files[0]})
-              </span>
-            )}
-          </div>
+          )}
         </div>
+
         {activeNodeContext ? (
-          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-airforce-500/15 text-airforce-600 dark:text-airforce-400 font-semibold tracking-wide shrink-0">
+          <span className="shrink-0 text-[9px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-full
+            bg-airforce-500/12 text-airforce-600 dark:text-airforce-400 font-semibold">
             {activeNodeContext.type}
           </span>
         ) : (
-          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-neutral-200/60 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 font-medium shrink-0">
+          <span className="shrink-0 text-[9px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-full
+            bg-neutral-200/70 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500">
             General
           </span>
         )}
       </div>
 
-      {/* 3. Message List */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-4">
-        {currentMessages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-neutral-400">
-            <Bot className="w-8 h-8 text-neutral-300 dark:text-neutral-700 mb-2" />
-            <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+      {/* ── Message list ────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {isEmpty ? (
+          /* Empty state */
+          <div className="h-full flex flex-col items-center justify-center text-center py-8">
+            <div className="w-10 h-10 rounded-xl bg-airforce-500/10 border border-airforce-500/20
+              flex items-center justify-center mb-3">
+              <Bot className="w-5 h-5 text-airforce-500" />
+            </div>
+            <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-0.5">
+              {activeTab === 'General' ? 'Ask about this repository' : `Ask about ${activeTab}`}
+            </p>
+            <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mb-4 max-w-[200px]">
               {activeTab === 'General'
-                ? 'Ask any architectural or implementation question.'
-                : `What would you like to know about ${activeTab}?`}
+                ? 'Ask architecture, code, or flow questions'
+                : 'Scoped to this component\'s files & context'}
             </p>
-            <p className="text-[11px] text-neutral-400 mt-1 max-w-[220px]">
-              Tap nodes on the graph to scope queries, or ask about execution flows.
-            </p>
+
+            {/* Suggested prompts */}
+            <div className="flex flex-col gap-1.5 w-full max-w-[240px]">
+              {suggestedPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  onClick={() => handleSend(prompt)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] text-left
+                    bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700
+                    text-neutral-600 dark:text-neutral-300 transition-colors cursor-pointer
+                    border border-neutral-200/50 dark:border-neutral-700/50"
+                >
+                  <Zap className="w-3 h-3 text-airforce-500 shrink-0" />
+                  {prompt}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           currentMessages.map((msg, i) => <ChatMessage key={i} message={msg} />)
         )}
 
+        {/* Typing indicator */}
         {isChatLoading && (
-          <div className="flex items-center gap-2 text-xs font-mono text-airforce-500 animate-pulse">
-            <div className="w-2 h-2 rounded-full bg-airforce-500 animate-ping" />
-            <span>Analyzing repository & verifying evidence...</span>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl
+            bg-neutral-100 dark:bg-neutral-800 w-fit max-w-[200px]">
+            <div className="flex gap-1">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full bg-airforce-500 animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
+            <span className="text-[10.5px] font-mono text-neutral-400">Analyzing…</span>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 4. Bottom Input Box */}
-      <div className="p-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/40">
-        <form onSubmit={handleSend} className="relative">
+      {/* ── Input area ──────────────────────────────────── */}
+      <div className="shrink-0 px-3 pb-3 pt-2 border-t border-neutral-100 dark:border-neutral-800
+        bg-neutral-50/50 dark:bg-neutral-950/30">
+        <form
+          onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+          className="flex items-end gap-2"
+        >
           <textarea
             id="repograph-chat-input"
-            rows="2"
+            ref={inputRef}
+            rows={2}
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
               activeTab === 'General'
-                ? 'Ask anything about this repo... (e.g. How does login work?)'
-                : `Ask about ${activeTab}... (e.g. Why is JWT used here?)`
+                ? 'Ask anything about this repo…'
+                : `Ask about ${activeTab}…`
             }
-            className="w-full pl-3 pr-10 py-2 text-xs rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:border-airforce-500 transition-colors resize-none"
+            className="flex-1 px-3 py-2 text-[12px] rounded-xl resize-none
+              bg-white dark:bg-neutral-900
+              border border-neutral-200 dark:border-neutral-700
+              text-neutral-900 dark:text-neutral-100
+              placeholder:text-neutral-400 dark:placeholder:text-neutral-600
+              focus:outline-none focus:border-airforce-500 dark:focus:border-airforce-500
+              transition-colors leading-relaxed"
           />
-
           <button
             type="submit"
             disabled={!inputVal.trim() || isChatLoading}
-            className="absolute right-2 bottom-2.5 p-1.5 rounded-lg bg-airforce-500 text-white hover:bg-airforce-600 disabled:opacity-40 transition-colors cursor-pointer"
+            className="shrink-0 p-2.5 rounded-xl bg-airforce-500 text-white
+              hover:bg-airforce-600 disabled:opacity-40 disabled:cursor-not-allowed
+              transition-colors cursor-pointer shadow-sm"
           >
             <Send className="w-3.5 h-3.5" />
           </button>

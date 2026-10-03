@@ -3,16 +3,31 @@ import {
   ReactFlow,
   Background,
   Controls,
+  MiniMap,
   MarkerType,
+  BackgroundVariant,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import CustomNode from './CustomNode';
 import { useStore } from '../../store/useStore';
-import { X, Sparkles } from 'lucide-react';
+import { X, Sparkles, GitMerge } from 'lucide-react';
 
-const nodeTypes = {
-  custom: CustomNode,
+const nodeTypes = { custom: CustomNode };
+
+// Color for each node type (used in minimap)
+const TYPE_COLORS = {
+  frontend: '#10b981',
+  backend: '#4789b8',
+  service: '#a855f7',
+  database: '#f59e0b',
+  external: '#0ea5e9',
 };
+
+// ─── Layout constants ─────────────────────────────────────────
+const NODE_WIDTH = 200;
+const HORIZONTAL_SPACING = 260;
+const VERTICAL_SPACING = 200;
+const CENTER_X = 600;
 
 export default function GraphCanvas() {
   const {
@@ -24,73 +39,56 @@ export default function GraphCanvas() {
     clearFocus,
   } = useStore();
 
-  // Compute DAG hierarchical positions: layout nodes in true sequential execution flow
+  // ─── Compute DAG hierarchical positions ───────────────────
   const flowNodes = useMemo(() => {
-    if (!graphData.nodes || graphData.nodes.length === 0) return [];
-
-    const nodes = graphData.nodes;
+    const nodes = graphData.nodes || [];
     const edges = graphData.edges || [];
+    if (nodes.length === 0) return [];
 
-    // 1. Initial base layer assignment (from AI synthesis or architectural type)
-    const layerMap = {};
+    // 1. Assign base layers from data or type defaults
     const typeFallback = { frontend: 0, backend: 1, service: 2, database: 3, external: 3 };
-
+    const layerMap = {};
     nodes.forEach((n) => {
-      if (typeof n.layer === 'number') {
-        layerMap[n.id] = n.layer;
-      } else {
-        layerMap[n.id] = typeFallback[n.type] ?? 1;
-      }
+      layerMap[n.id] = typeof n.layer === 'number' ? n.layer : (typeFallback[n.type] ?? 1);
     });
 
-    // 2. DAG Layer Relaxation:
-    // Guarantee that every target is placed strictly below its source in the flow (targetLayer > sourceLayer)
-    const maxPasses = Math.min(nodes.length, 8);
+    // 2. DAG relaxation: ensure targets are strictly below sources
+    const maxPasses = nodes.length + 2;
     for (let pass = 0; pass < maxPasses; pass++) {
       let changed = false;
-      edges.forEach((edge) => {
-        const sLayer = layerMap[edge.source];
-        const tLayer = layerMap[edge.target];
-        if (sLayer !== undefined && tLayer !== undefined) {
-          if (tLayer <= sLayer) {
-            layerMap[edge.target] = sLayer + 1;
-            changed = true;
-          }
+      edges.forEach((e) => {
+        const s = layerMap[e.source];
+        const t = layerMap[e.target];
+        if (s !== undefined && t !== undefined && t <= s) {
+          layerMap[e.target] = s + 1;
+          changed = true;
         }
       });
       if (!changed) break;
     }
 
-    // 3. Group nodes into sequential horizontal tiers
-    const layerGroups = {};
-    nodes.forEach((node) => {
-      const l = layerMap[node.id] || 0;
-      if (!layerGroups[l]) layerGroups[l] = [];
-      layerGroups[l].push(node);
+    // 3. Group into tiers
+    const tiers = {};
+    nodes.forEach((n) => {
+      const l = layerMap[n.id] ?? 0;
+      (tiers[l] = tiers[l] || []).push(n);
     });
 
-    const sortedLayers = Object.keys(layerGroups).map(Number).sort((a, b) => a - b);
-
-    // 4. Calculate symmetrical positions with generous spacing
-    const calculated = [];
-    const CENTER_X = 650;
-    const HORIZONTAL_SPACING = 290;
-    const VERTICAL_SPACING = 230;
-    let currentY = 70;
+    // 4. Calculate positions — centred per tier
+    const sortedLayers = Object.keys(tiers).map(Number).sort((a, b) => a - b);
+    const result = [];
+    let currentY = 60;
 
     sortedLayers.forEach((l) => {
-      const groupNodes = layerGroups[l];
-      const layerWidth = (groupNodes.length - 1) * HORIZONTAL_SPACING;
-      const startX = CENTER_X - layerWidth / 2;
+      const group = tiers[l];
+      const totalWidth = (group.length - 1) * HORIZONTAL_SPACING;
+      const startX = CENTER_X - totalWidth / 2;
 
-      groupNodes.forEach((node, idx) => {
-        calculated.push({
+      group.forEach((node, idx) => {
+        result.push({
           id: node.id,
           type: 'custom',
-          position: {
-            x: startX + idx * HORIZONTAL_SPACING,
-            y: currentY,
-          },
+          position: { x: startX + idx * HORIZONTAL_SPACING, y: currentY },
           data: node,
           selected: selectedNode?.id === node.id,
         });
@@ -99,15 +97,13 @@ export default function GraphCanvas() {
       currentY += VERTICAL_SPACING;
     });
 
-    return calculated;
+    return result;
   }, [graphData.nodes, graphData.edges, selectedNode]);
 
-  // Edges with smooth bezier curves, flow labels, and elegant coloring
+  // ─── Compute styled edges ─────────────────────────────────
   const flowEdges = useMemo(() => {
-    if (!graphData.edges) return [];
-
-    return graphData.edges.map((edge) => {
-      // Check if this edge connects two consecutive nodes in the trace path
+    const edges = graphData.edges || [];
+    return edges.map((edge) => {
       const fromIdx = highlightedPath.indexOf(edge.source);
       const toIdx = highlightedPath.indexOf(edge.target);
       const isPathEdge =
@@ -120,86 +116,103 @@ export default function GraphCanvas() {
         id: edge.id || `e_${edge.source}_${edge.target}`,
         source: edge.source,
         target: edge.target,
-        type: 'bezier',
+        type: 'smoothstep',
         animated: isPathEdge,
         label: edge.label || '',
         labelStyle: {
-          fontSize: 10,
-          fontFamily: 'monospace',
-          fill: isPathEdge ? '#4789b8' : '#71717a',
-          fontWeight: isPathEdge ? 600 : 500,
+          fontSize: 9.5,
+          fontFamily: '"JetBrains Mono", monospace',
+          fill: isPathEdge ? '#4789b8' : '#9ca3af',
+          fontWeight: isPathEdge ? 700 : 500,
         },
         labelBgStyle: {
           fill: '#ffffff',
-          fillOpacity: 0.9,
+          fillOpacity: 0.95,
+          rx: 4,
         },
-        labelBgPadding: [6, 2],
+        labelBgPadding: [5, 3],
         labelBgBorderRadius: 4,
         style: {
-          stroke: isPathEdge ? '#4789b8' : focusMode ? '#52525b' : '#94a3b8',
-          strokeWidth: isPathEdge ? 2.5 : 1.75,
-          opacity: focusMode && !isPathEdge ? 0.2 : 0.85,
+          stroke: isPathEdge ? '#4789b8' : focusMode ? '#d1d5db' : '#d1d5db',
+          strokeWidth: isPathEdge ? 2.5 : 1.5,
+          opacity: focusMode && !isPathEdge ? 0.15 : 1,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: isPathEdge ? '#4789b8' : '#94a3b8',
-          width: 14,
-          height: 14,
+          color: isPathEdge ? '#4789b8' : '#d1d5db',
+          width: 12,
+          height: 12,
         },
       };
     });
   }, [graphData.edges, highlightedPath, focusMode]);
 
-  const onNodeClick = useCallback(
-    (_, node) => {
-      setSelectedNode(node.data);
-    },
-    [setSelectedNode]
-  );
+  const onNodeClick = useCallback((_, node) => setSelectedNode(node.data), [setSelectedNode]);
+  const onPaneClick = useCallback(() => setSelectedNode(null), [setSelectedNode]);
 
-  const onPaneClick = useCallback(() => {
-    // Tapping canvas background deselects inspector
-    setSelectedNode(null);
-  }, [setSelectedNode]);
+  const isEmpty = !graphData.nodes || graphData.nodes.length === 0;
 
   return (
-    <div className="relative w-full h-full bg-neutral-100/50 dark:bg-neutral-950 overflow-hidden">
-      {/* Top Floating Controls: Trace Banner & Legend */}
-      <div className="absolute top-4 left-4 z-10 flex flex-wrap items-center gap-2 pointer-events-auto">
+    <div className="relative w-full h-full bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
+
+      {/* ── Floating top bar ─────────────────────────────── */}
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-2 pointer-events-none">
+        {/* Trace active pill */}
         {focusMode && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-mono shadow-md animate-fadeIn">
-            <Sparkles className="w-3.5 h-3.5 text-airforce-400 dark:text-airforce-600" />
-            <span>Trace Active ({highlightedPath.length} steps)</span>
+          <div
+            className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-lg
+              bg-neutral-900/95 dark:bg-white/95 text-white dark:text-neutral-900
+              text-[11px] font-mono shadow-lg backdrop-blur-sm animate-fadeIn"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-airforce-400 dark:text-airforce-500" />
+            <span>Trace · {highlightedPath.length} steps</span>
             <button
               onClick={clearFocus}
-              className="ml-1 p-0.5 rounded hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
-              title="Clear Trace"
+              className="ml-1 p-0.5 rounded hover:bg-white/10 dark:hover:bg-black/10 transition-colors"
+              title="Clear trace"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3 h-3" />
             </button>
           </div>
         )}
 
-        {/* Legend */}
-        <div className="hidden sm:flex items-center gap-3.5 px-3 py-1.5 rounded-lg bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 text-[11px] font-mono text-neutral-600 dark:text-neutral-400 shadow-sm backdrop-blur-sm">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" /> Frontend
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-airforce-500" /> Backend
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-purple-500" /> Service
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-500" /> Database
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-sky-500" /> External
-          </span>
-        </div>
+        {/* Legend pill */}
+        {!isEmpty && (
+          <div
+            className="pointer-events-none hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-lg
+              bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800
+              text-[10px] font-mono text-neutral-500 shadow-sm backdrop-blur-sm"
+          >
+            {[
+              { color: '#10b981', label: 'Frontend' },
+              { color: '#4789b8', label: 'Backend' },
+              { color: '#a855f7', label: 'Service' },
+              { color: '#f59e0b', label: 'Database' },
+              { color: '#0ea5e9', label: 'External' },
+            ].map(({ color, label }) => (
+              <span key={label} className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* ── Empty state ───────────────────────────────────── */}
+      {isEmpty && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 pointer-events-none">
+          <GitMerge className="w-10 h-10 text-neutral-300 dark:text-neutral-700 mb-3" />
+          <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+            No graph data yet
+          </p>
+          <p className="text-xs text-neutral-400 dark:text-neutral-600 mt-1">
+            Analyze a repository to visualize its architecture
+          </p>
+        </div>
+      )}
+
+      {/* ── ReactFlow canvas ─────────────────────────────── */}
       <ReactFlow
         nodes={flowNodes}
         edges={flowEdges}
@@ -207,13 +220,31 @@ export default function GraphCanvas() {
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
-        minZoom={0.25}
-        maxZoom={1.5}
+        fitViewOptions={{ padding: 0.35 }}
+        minZoom={0.2}
+        maxZoom={2}
+        nodesDraggable
+        panOnDrag
         className="transition-colors"
+        proOptions={{ hideAttribution: true }}
       >
-        <Background color="#94a3b8" gap={24} size={1} className="opacity-25" />
-        <Controls className="!bg-white dark:!bg-neutral-900 !border-neutral-200 dark:!border-neutral-800 !shadow-sm !rounded-lg" />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={28}
+          size={1}
+          color="#e5e7eb"
+          className="dark:opacity-20"
+        />
+        <Controls
+          className="!rounded-lg !shadow-md !border-neutral-200 dark:!border-neutral-700 !overflow-hidden"
+          showInteractive={false}
+        />
+        <MiniMap
+          nodeColor={(n) => TYPE_COLORS[n.data?.type] || '#94a3b8'}
+          maskColor="rgba(0,0,0,0.04)"
+          className="!rounded-lg !border !border-neutral-200 dark:!border-neutral-800 !shadow-md"
+          style={{ width: 140, height: 90 }}
+        />
       </ReactFlow>
     </div>
   );

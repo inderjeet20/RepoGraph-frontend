@@ -56,8 +56,9 @@ export default function ChatMessage({ message }) {
                 blockquote: ({ node, ...props }) => (
                   <blockquote className="border-l-2 border-airforce-500 pl-2.5 italic text-neutral-500 dark:text-neutral-400 my-1.5" {...props} />
                 ),
-                code: ({ node, inline, className, children, ...props }) => {
-                  return inline ? (
+                code: ({ node, className, children, ...props }) => {
+                  const isInline = !className;
+                  return isInline ? (
                     <code className="px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-airforce-600 dark:text-airforce-400 font-mono text-[11px] border border-neutral-200 dark:border-neutral-700/60" {...props}>
                       {children}
                     </code>

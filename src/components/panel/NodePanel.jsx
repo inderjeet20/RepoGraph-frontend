@@ -1,7 +1,18 @@
 import React from 'react';
 import { useStore } from '../../store/useStore';
-import { X, Sparkles, GitCommit, MessageSquare, ArrowRight, CornerDownRight } from 'lucide-react';
+import {
+  X, Sparkles, CornerDownRight, MessageSquare,
+  FileText, ArrowRight, ArrowLeft, Layers,
+} from 'lucide-react';
 import { API_BASE_URL } from '../../config/api';
+
+const TYPE_ACCENT = {
+  frontend: { color: '#10b981', bg: 'rgba(16,185,129,0.1)', label: 'Frontend' },
+  backend:  { color: '#4789b8', bg: 'rgba(71,137,184,0.1)', label: 'Backend' },
+  service:  { color: '#a855f7', bg: 'rgba(168,85,247,0.1)', label: 'Service' },
+  database: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', label: 'Database' },
+  external: { color: '#0ea5e9', bg: 'rgba(14,165,233,0.1)', label: 'External' },
+};
 
 export default function NodePanel() {
   const {
@@ -17,13 +28,14 @@ export default function NodePanel() {
 
   if (!selectedNode) return null;
 
-  const handleExplain = async () => {
+  const accent = TYPE_ACCENT[selectedNode.type] || TYPE_ACCENT.service;
+
+  // ─── Handlers ─────────────────────────────────────────────
+
+  const callChat = async (prompt, onHighlight) => {
     const tabName = selectedNode.label;
     setActiveTab(tabName);
-
-    const userPrompt = `Explain the role and architecture of ${selectedNode.label}.`;
-    appendChatMessage(tabName, { role: 'user', content: userPrompt });
-
+    appendChatMessage(tabName, { role: 'user', content: prompt });
     setChatLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/chat`, {
@@ -31,13 +43,16 @@ export default function NodePanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           repo_name: repoName,
-          message: userPrompt,
+          message: prompt,
           node_context: selectedNode,
           all_nodes: graphData.nodes,
           all_edges: graphData.edges,
         }),
       });
       const data = await res.json();
+      if (onHighlight && data.highlighted_path?.length > 0) {
+        onHighlight(data.highlighted_path);
+      }
       appendChatMessage(tabName, {
         role: 'assistant',
         content: data.answer,
@@ -47,7 +62,7 @@ export default function NodePanel() {
     } catch (e) {
       appendChatMessage(tabName, {
         role: 'assistant',
-        content: `Error retrieving explanation: ${e.message}`,
+        content: `Error: ${e.message}`,
         sources: [],
         source_type: 'repo',
       });
@@ -56,167 +71,174 @@ export default function NodePanel() {
     }
   };
 
-  const handleTraceFlow = async () => {
-    const tabName = selectedNode.label;
-    setActiveTab(tabName);
+  const handleExplain = () =>
+    callChat(`Explain the role and architecture of ${selectedNode.label}.`);
 
-    const userPrompt = `Trace the execution flow for ${selectedNode.label}.`;
-    appendChatMessage(tabName, { role: 'user', content: userPrompt });
-
-    setChatLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repo_name: repoName,
-          message: userPrompt,
-          node_context: selectedNode,
-          all_nodes: graphData.nodes,
-          all_edges: graphData.edges,
-        }),
-      });
-      const data = await res.json();
-
-      if (data.highlighted_path && data.highlighted_path.length > 0) {
-        setHighlightedPath(data.highlighted_path);
+  const handleTraceFlow = () =>
+    callChat(`Trace the execution flow for ${selectedNode.label}.`, (path) => {
+      if (path?.length > 0) {
+        setHighlightedPath(path);
       } else {
-        // Fallback trace path if empty
-        const fallback = [graphData.nodes[0]?.id, selectedNode.id, graphData.nodes[graphData.nodes.length - 1]?.id].filter(Boolean);
+        const fallback = [
+          graphData.nodes[0]?.id,
+          selectedNode.id,
+          graphData.nodes[graphData.nodes.length - 1]?.id,
+        ].filter(Boolean);
         setHighlightedPath(fallback);
       }
-
-      appendChatMessage(tabName, {
-        role: 'assistant',
-        content: data.answer || `Visual flow active: Tracing execution across ${data.highlighted_path?.length || 3} components. Non-relevant nodes are dimmed on the canvas.`,
-        sources: data.sources || [],
-        source_type: data.source_type || 'repo',
-      });
-    } catch (e) {
-      // Fallback local trace
-      setHighlightedPath([selectedNode.id]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
+    });
 
   const handleAsk = () => {
     setActiveTab(selectedNode.label);
-    const chatInput = document.getElementById('repograph-chat-input');
-    if (chatInput) {
-      chatInput.focus();
-    }
+    setTimeout(() => {
+      document.getElementById('repograph-chat-input')?.focus();
+    }, 100);
   };
 
   return (
-    <div className="absolute top-4 right-4 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-xl bg-white/95 dark:bg-neutral-900/95 border border-neutral-200 dark:border-neutral-800 shadow-xl backdrop-blur-md p-4 transition-all animate-fadeIn">
+    /* Slide-in panel anchored bottom-left of graph */
+    <div
+      className="absolute bottom-4 left-4 z-20 w-72 rounded-xl shadow-2xl
+        bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800
+        overflow-hidden animate-slideUp"
+    >
+      {/* Accent top bar */}
+      <div style={{ height: 3, background: `linear-gradient(90deg, ${accent.color}, ${accent.color}60)` }} />
+
       {/* Header */}
-      <div className="flex items-start justify-between gap-2 pb-3 border-b border-neutral-200 dark:border-neutral-800">
-        <div>
-          <h3 className="font-semibold text-sm text-neutral-900 dark:text-white">
+      <div className="flex items-start justify-between gap-2 px-4 pt-3 pb-2.5">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span
+              className="text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+              style={{ background: accent.bg, color: accent.color }}
+            >
+              {accent.label}
+            </span>
+          </div>
+          <h3 className="font-semibold text-sm text-neutral-900 dark:text-white leading-tight truncate">
             {selectedNode.label}
           </h3>
-          <span className="text-[11px] font-mono uppercase tracking-wider text-airforce-500">
-            {selectedNode.type} / Module
-          </span>
         </div>
 
         <button
           onClick={() => setSelectedNode(null)}
-          className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+          className="shrink-0 p-1 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300
+            hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors mt-0.5"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      <div className="mt-3 space-y-3.5 text-xs">
+      {/* Divider */}
+      <div className="h-px bg-neutral-100 dark:bg-neutral-800 mx-4" />
+
+      {/* Body */}
+      <div className="px-4 py-3 space-y-3 text-xs">
         {/* Description */}
         {selectedNode.description && (
-          <p className="text-neutral-600 dark:text-neutral-300 leading-relaxed">
+          <p className="text-neutral-500 dark:text-neutral-400 leading-relaxed">
             {selectedNode.description}
           </p>
         )}
 
         {/* Files */}
-        {selectedNode.files && selectedNode.files.length > 0 && (
+        {selectedNode.files?.length > 0 && (
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-400 block mb-1">
+            <span className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-neutral-400 mb-1.5">
+              <FileText className="w-3 h-3" />
               Files
             </span>
-            <ul className="space-y-1 font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
-              {selectedNode.files.map((file, i) => (
-                <li key={i} className="truncate flex items-center gap-1.5">
-                  <span className="text-airforce-500">•</span>
-                  <span>{file}</span>
+            <ul className="space-y-1">
+              {selectedNode.files.slice(0, 4).map((file, i) => (
+                <li key={i} className="font-mono text-[10.5px] text-neutral-600 dark:text-neutral-300 truncate">
+                  <span className="text-neutral-300 dark:text-neutral-600 mr-1.5">›</span>
+                  {file}
                 </li>
               ))}
+              {selectedNode.files.length > 4 && (
+                <li className="font-mono text-[10px] text-neutral-400">
+                  +{selectedNode.files.length - 4} more files
+                </li>
+              )}
             </ul>
           </div>
         )}
 
-        {/* Dependencies */}
-        {selectedNode.dependencies && selectedNode.dependencies.length > 0 && (
-          <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-400 block mb-1">
-              Dependencies
-            </span>
-            <div className="flex flex-wrap gap-1">
-              {selectedNode.dependencies.map((dep, i) => (
-                <span
-                  key={i}
-                  className="px-1.5 py-0.5 rounded text-[11px] font-mono bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
-                >
-                  → {dep}
-                </span>
-              ))}
+        {/* Deps + Used-by */}
+        <div className="grid grid-cols-2 gap-2">
+          {selectedNode.dependencies?.length > 0 && (
+            <div>
+              <span className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-neutral-400 mb-1.5">
+                <ArrowRight className="w-3 h-3" />
+                Depends on
+              </span>
+              <div className="space-y-1">
+                {selectedNode.dependencies.slice(0, 3).map((dep, i) => (
+                  <div
+                    key={i}
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800
+                      text-neutral-600 dark:text-neutral-300 truncate"
+                  >
+                    {dep}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Used By */}
-        {selectedNode.used_by && selectedNode.used_by.length > 0 && (
-          <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-400 block mb-1">
-              Used by
-            </span>
-            <div className="flex flex-wrap gap-1">
-              {selectedNode.used_by.map((caller, i) => (
-                <span
-                  key={i}
-                  className="px-1.5 py-0.5 rounded text-[11px] font-mono bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
-                >
-                  ← {caller}
-                </span>
-              ))}
+          {selectedNode.used_by?.length > 0 && (
+            <div>
+              <span className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-neutral-400 mb-1.5">
+                <ArrowLeft className="w-3 h-3" />
+                Used by
+              </span>
+              <div className="space-y-1">
+                {selectedNode.used_by.slice(0, 3).map((caller, i) => (
+                  <div
+                    key={i}
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800
+                      text-neutral-600 dark:text-neutral-300 truncate"
+                  >
+                    {caller}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* 3 Buttons: Explain | Trace Flow | Ask */}
-      <div className="mt-5 pt-3 border-t border-neutral-200 dark:border-neutral-800 grid grid-cols-3 gap-1.5">
+      {/* Action buttons */}
+      <div className="px-4 pb-4 pt-1 grid grid-cols-3 gap-1.5">
         <button
           onClick={handleExplain}
-          className="px-2.5 py-2 rounded-lg text-xs font-medium bg-neutral-100 dark:bg-neutral-800/80 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+          className="flex flex-col items-center gap-1 py-2.5 rounded-lg text-[10.5px] font-medium
+            bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300
+            hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
         >
-          <Sparkles className="w-3.5 h-3.5 text-airforce-500" />
-          <span>Explain</span>
+          <Sparkles className="w-3.5 h-3.5" style={{ color: accent.color }} />
+          Explain
         </button>
 
         <button
           onClick={handleTraceFlow}
-          className="px-2.5 py-2 rounded-lg text-xs font-medium bg-neutral-100 dark:bg-neutral-800/80 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+          className="flex flex-col items-center gap-1 py-2.5 rounded-lg text-[10.5px] font-medium
+            bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300
+            hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
         >
-          <CornerDownRight className="w-3.5 h-3.5 text-airforce-500" />
-          <span>Trace Flow</span>
+          <CornerDownRight className="w-3.5 h-3.5" style={{ color: accent.color }} />
+          Trace
         </button>
 
         <button
           onClick={handleAsk}
-          className="px-2.5 py-2 rounded-lg text-xs font-medium bg-airforce-500 text-white hover:bg-airforce-600 transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-sm"
+          className="flex flex-col items-center gap-1 py-2.5 rounded-lg text-[10.5px] font-medium
+            text-white transition-colors cursor-pointer shadow-sm"
+          style={{ background: accent.color }}
         >
           <MessageSquare className="w-3.5 h-3.5" />
-          <span>Ask</span>
+          Ask
         </button>
       </div>
     </div>
